@@ -37,7 +37,7 @@
     "LICENSE"
   ],
   "bin": {
-    "designpull": "./src/index.js"
+    "designpull": "src/index.js"
   },
   "scripts": {
     "start": "node src/index.js",
