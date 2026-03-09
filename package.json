@@ -1,0 +1,67 @@
+{
+  "name": "designpull",
+  "version": "0.1.0",
+  "description": "Code in. Design out. Ship faster.",
+  "type": "module",
+  "license": "MIT",
+  "author": "kuriouscreator",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuriouscreator/designpull.git"
+  },
+  "homepage": "https://designpull.dev",
+  "bugs": {
+    "url": "https://github.com/kuriouscreator/designpull/issues"
+  },
+  "keywords": [
+    "figma",
+    "design-tokens",
+    "mcp",
+    "claude",
+    "design-system",
+    "cli",
+    "figma-variables",
+    "claude-code",
+    "component-generation",
+    "design-ops",
+    "dx",
+    "developer-tools"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "src/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "bin": {
+    "designpull": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "npm test",
+    "mcp:start": "node scripts/mcp-wrapper.js start",
+    "mcp:stop": "node scripts/mcp-wrapper.js stop",
+    "mcp:restart": "node scripts/mcp-wrapper.js restart",
+    "mcp:status": "node scripts/mcp-wrapper.js status"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@clack/prompts": "^0.7.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "commander": "^12.0.0",
+    "picocolors": "^1.0.0",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@vitest/ui": "^4.0.18",
+    "c8": "^11.0.0",
+    "vitest": "^4.0.18"
+  }
+}

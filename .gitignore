@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# DesignPull generated files
+.designpull/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# Temporary files
+/ignore
+tmp/
+temp/
+
+# Package manager files
+package-lock.json.bak
+yarn.lock.bak

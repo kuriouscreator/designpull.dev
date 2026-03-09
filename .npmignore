@@ -1,0 +1,50 @@
+# Environment files
+.env*
+!.env.example
+
+# Generated files
+.designpull/
+
+# Git
+.git/
+.github/
+
+# Website (separate deployment)
+website/
+
+# Ignore directory
+ignore/
+
+# Dependencies
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Test files
+test/
+*.test.js
+*.spec.js
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo

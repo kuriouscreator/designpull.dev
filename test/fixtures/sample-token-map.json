@@ -1,0 +1,60 @@
+{
+  "collections": [
+    {
+      "name": "Primitives",
+      "modes": ["Default"],
+      "variables": [
+        {
+          "name": "color/brand/primary",
+          "type": "COLOR",
+          "values": {
+            "Default": "#00A7E1"
+          },
+          "alias": null,
+          "description": "Brand primary color"
+        },
+        {
+          "name": "space/2",
+          "type": "FLOAT",
+          "values": {
+            "Default": 8
+          },
+          "alias": null,
+          "description": "Spacing 2"
+        }
+      ]
+    },
+    {
+      "name": "Semantic",
+      "modes": ["Light", "Dark"],
+      "variables": [
+        {
+          "name": "color/bg/canvas",
+          "type": "COLOR",
+          "values": {
+            "Light": "#FFFFFF",
+            "Dark": "#0A0A0A"
+          },
+          "alias": "color/neutral/white",
+          "description": "Canvas background"
+        }
+      ]
+    },
+    {
+      "name": "Typography",
+      "modes": ["Desktop", "Mobile"],
+      "variables": [
+        {
+          "name": "body/md/fontSize",
+          "type": "FLOAT",
+          "values": {
+            "Desktop": 16,
+            "Mobile": 16
+          },
+          "alias": null,
+          "description": "Body medium font size"
+        }
+      ]
+    }
+  ]
+}
