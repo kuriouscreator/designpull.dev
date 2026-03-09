@@ -213,8 +213,6 @@ export async function runSync(outputDir = process.cwd(), opts = {}) {
         `${pc.green('✓')} MCP tools executed: ${result.toolsExecuted.join(', ')}`,
         '',
         pc.dim('Open Figma → right sidebar → Local variables to verify.'),
-        '',
-        pc.dim('Next: ') + pc.cyan('designpull generate') + pc.dim(' → build components on canvas.'),
       ].filter(Boolean).join('\n'),
       'Sync complete'
     );

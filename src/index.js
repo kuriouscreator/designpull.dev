@@ -3,7 +3,6 @@
 import { Command } from 'commander';
 import { runInit } from './init.js';
 import { runSync } from './sync.js';
-import { runGenerate } from './generate.js';
 import { runDoctor } from './doctor.js';
 
 const program = new Command();
@@ -28,14 +27,6 @@ program
   .option('--dry-run', 'Parse tokens and preview without writing to Figma')
   .action(async (options) => {
     await runSync(options.output, { dryRun: options.dryRun });
-  });
-
-program
-  .command('generate')
-  .description('Generate components in Figma from your token system')
-  .option('-o, --output <dir>', 'Project directory', process.cwd())
-  .action(async (options) => {
-    await runGenerate(options.output);
   });
 
 program

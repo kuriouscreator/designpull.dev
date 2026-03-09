@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-08
+
+### Removed
+- `designpull generate` command (not fully tested, will be reintroduced in future release)
+
 ## [0.1.0] - 2026-03-08
 
 ### Added
@@ -25,12 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Supports `--dry-run` flag for preview without writing
   - Validates token map schema and minimum variable count
 
-- `designpull generate` - Generate Figma components from token system
-  - Creates Components page in Figma
-  - Generates Button, Input, Card, Badge, and Text components
-  - All components reference variables (no hardcoded values)
-  - Spawns Claude Code with component generation prompts
-
 - `designpull doctor` - Environment health check
   - Validates Node.js version (>= 20)
   - Checks Claude Code installation
@@ -45,7 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Testing Infrastructure
 - Comprehensive test suite with Vitest
-- Unit tests for all commands (init, sync, generate, doctor)
+- Unit tests for all commands (init, sync, doctor)
 - Test fixtures for valid/invalid design tokens
 - Coverage reporting with c8
 - `prepublishOnly` hook to prevent publishing without passing tests

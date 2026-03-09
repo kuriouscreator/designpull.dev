@@ -131,7 +131,6 @@ export function parseEnv(content) {
   - `index.js` - CLI entry point
   - `init.js` - init command
   - `sync.js` - sync command
-  - `generate.js` - generate command
   - `doctor.js` - doctor command
   - `utils.js` - Shared utilities
 - `test/` - Test files

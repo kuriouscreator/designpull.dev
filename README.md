@@ -7,7 +7,7 @@
 
 **Code in. Design out. Ship faster.**
 
-DesignPull is a command-line tool that scaffolds design token files and writes them to Figma as live variables via Claude Code + Figma Console MCP. Define your design system in markdown, sync to Figma, and generate production-ready components — all from your terminal.
+DesignPull is a command-line tool that scaffolds design token files and writes them to Figma as live variables via Claude Code + Figma Console MCP. Define your design system in markdown and sync to Figma — all from your terminal.
 
 ---
 
@@ -15,7 +15,6 @@ DesignPull is a command-line tool that scaffolds design token files and writes t
 
 1. **Scaffolds a complete design token system** in a single markdown file (`design-token.md`)
 2. **Writes tokens to Figma as variables** (primitives, semantic tokens, typography) via MCP — no REST API, no manual copy-paste
-3. **Generates Figma components** (Button, Input, Card, etc.) that reference your tokens — zero hardcoded values
 
 ---
 
@@ -88,21 +87,6 @@ This:
 **Options:**
 - `--dry-run` — parse tokens and preview without writing to Figma
 
-### 3. Generate components (optional)
-
-```bash
-designpull generate
-```
-
-This creates Figma components on a "Components" page:
-- **Button** — variants (primary, secondary, ghost, danger), sizes (sm, md, lg), states (default, hover, focus, disabled, loading)
-- **Input** — variants (default, error, disabled), sizes (sm, md, lg), states
-- **Card** — variants (default, elevated, outlined)
-- **Badge** — variants (default, success, warning, error, info), sizes (sm, md)
-- **Text** — all type scale styles
-
-All components reference variables from your token system — no hardcoded values.
-
 ---
 
 ## MCP Setup
@@ -150,7 +134,6 @@ claude mcp add chakra-ui -s user -- npx -y @chakra-ui/mcp@latest
 |---------|-------------|---------|
 | `designpull init` | Set up `design-token.md` and Figma connection | `-o, --output <dir>` |
 | `designpull sync` | Parse tokens and write to Figma variables | `-o, --output <dir>`, `--dry-run` |
-| `designpull generate` | Generate components in Figma from tokens | `-o, --output <dir>` |
 | `designpull doctor` | Check environment health (Node, Claude, MCP, credentials) | `-o, --output <dir>` |
 
 ---
@@ -224,7 +207,7 @@ This is the **only** way to programmatically write Figma variables from a local 
 1. Open your Figma file in **Figma Desktop** (not browser)
 2. Right-click anywhere on canvas
 3. `Plugins → Development → Figma Desktop Bridge`
-4. Leave the plugin open while running `designpull sync` or `designpull generate`
+4. Leave the plugin open while running `designpull sync`
 
 ---
 
@@ -320,7 +303,6 @@ designpull/
 │   ├── index.js        # Commander entry point
 │   ├── init.js         # designpull init
 │   ├── sync.js         # designpull sync
-│   ├── generate.js     # designpull generate
 │   └── doctor.js       # designpull doctor
 ├── package.json
 ├── .env.example

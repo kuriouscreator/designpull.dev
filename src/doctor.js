@@ -140,8 +140,7 @@ export async function runDoctor(outputDir = process.cwd()) {
       pc.green(`${passedRequired}/${total} checks passed.`) + '\n\n' +
       pc.dim('Your environment is ready! Next steps:\n') +
       pc.dim('  1. ') + pc.cyan('designpull init') + pc.dim(' — set up tokens (if not done)\n') +
-      pc.dim('  2. ') + pc.cyan('designpull sync') + pc.dim(' — write variables to Figma\n') +
-      pc.dim('  3. ') + pc.cyan('designpull generate') + pc.dim(' — generate components'),
+      pc.dim('  2. ') + pc.cyan('designpull sync') + pc.dim(' — write variables to Figma'),
       'Environment healthy'
     );
   } else {
