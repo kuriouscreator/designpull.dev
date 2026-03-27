@@ -52,8 +52,8 @@
     "picocolors": "^1.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
-    "c8": "^11.0.0",
     "vitest": "^4.0.18"
   }
 }
