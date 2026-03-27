@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-03-27
+
+### Fixed
+- **`designpull sync` now actually writes to Figma** — prompt is passed via stdin instead of CLI arg (fixes truncation), and MCP config is explicitly passed to the Claude subprocess
+- **Output validation** — sync now detects when Claude fails to use Figma tools and reports an error instead of false success
+- **Semantic token dark mode** — `color/border/default` and `color/icon/subtle` now use `color/neutral/100` in dark mode (was `color/neutral/500`, invisible on dark backgrounds)
+- **Feedback tokens** — `color/feedback/success`, `warning`, and `error` now have explicit light/dark splits for consistency
+- **Removed `shell: true`** from all `spawn()` calls (fixes Node.js DEP0190 deprecation warning)
+- **Updated prompt** to reference `mcp__figma__use_figma` tool name and explicit aliasing instructions for variable references
+
+### Changed
+- MCP setup error messages now show the actual `claude mcp add` command instead of just a link
+- `designpull doctor` fix message updated with setup command
+
 ## [0.2.1] - 2026-03-27
 
 ### Fixed

@@ -89,8 +89,10 @@ export async function runSync(outputDir = process.cwd(), opts = {}) {
   if (!mcpReady) {
     p.log.warn(
       `Figma MCP server not found in your Claude Code config.\n\n` +
-      `Set it up by following:\n\n` +
-      `  ${pc.cyan('https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP')}\n\n` +
+      `Run this to add it:\n\n` +
+      `  ${pc.cyan('claude mcp add --transport http figma https://mcp.figma.com/mcp -s user')}\n\n` +
+      `Then authenticate in your browser when prompted.\n` +
+      `Guide: ${pc.dim('https://help.figma.com/hc/en-us/articles/39166810751895')}\n\n` +
       `Then run ${pc.cyan('designpull sync')} again.`
     );
     process.exit(1);
@@ -187,6 +189,16 @@ export async function runSync(outputDir = process.cwd(), opts = {}) {
       if (clean.length > 4) writeSpinner.message(truncate(clean, 64));
     });
 
+    // Validate that Claude actually used the Figma MCP tools
+    const output = (result.output || '').toLowerCase();
+    if (output.includes("don't have") || output.includes('not available') || output.includes('no figma')) {
+      throw new Error(
+        'Claude could not access Figma MCP tools.\n' +
+        `Run: ${pc.cyan('claude mcp add --transport http figma https://mcp.figma.com/mcp -s user')}\n` +
+        'Then authenticate in your browser when prompted.'
+      );
+    }
+
     writeSpinner.stop('Variables written to Figma');
 
     p.note(
@@ -221,12 +233,12 @@ function buildFigmaUsePrompt(tokenMap, figmaUrl) {
   const semantic   = tokenMap.collections.find(c => c.name === 'Semantic');
   const typography = tokenMap.collections.find(c => c.name === 'Typography');
 
-  return `You are writing design token variables to a Figma file using the figma-use skill.
+  return `You are writing design token variables to a Figma file using the mcp__figma__use_figma tool (Figma MCP server).
 
 TARGET: Figma file ${figmaUrl || 'the currently open Figma file'}
 
-Using the figma-use skill, create the following variable collections with their modes and variables.
-Execute immediately without asking for confirmation.
+Using the mcp__figma__use_figma tool, create the following variable collections with their modes and variables.
+Execute immediately without asking for confirmation. Do not ask clarifying questions.
 
 ---
 
@@ -240,18 +252,20 @@ Modes: ["Light", "Dark"]
 Variables:
 ${JSON.stringify(semantic?.variables ?? [], null, 2)}
 
-Transform rules for Semantic variables:
-- Variables with an "alias" field should reference the corresponding Primitive variable
-- Both Light and Dark mode values are provided
+IMPORTANT — Aliasing rules for Semantic variables:
+- When a variable has an "alias" field, its values MUST be set as variable references (aliases) to the corresponding Primitives variable, NOT as raw hex values.
+- For example, if a Semantic variable has "alias": "color/neutral/100", then BOTH its Light and Dark mode values should reference the Primitives collection variable "color/neutral/100" — do NOT copy the hex value, create a variable alias/reference instead.
+- The "values" object shows what the resolved colors look like, but you must set them as references to Primitives variables. The Light value corresponds to the alias field. The Dark value may differ — if the Dark hex matches a different Primitives variable, alias to that one; otherwise set the Dark value as a raw color.
+- Variables WITHOUT an "alias" field should use the raw values directly.
 
 COLLECTION 3: "Typography"
 Modes: ["Desktop", "Mobile"]
 Variables:
 ${JSON.stringify(typography?.variables ?? [], null, 2)}
 
-Transform rules for Typography variables:
-- Variables with an "alias" field reference Primitive typography variables
-- fontSize and lineHeight have different values per mode (Desktop/Mobile)
+IMPORTANT — Aliasing rules for Typography variables:
+- When a variable has an "alias" field, set its values as variable references (aliases) to the corresponding Primitives variable, NOT as raw values.
+- fontSize and lineHeight have different numeric values per mode (Desktop/Mobile) — these should be set as raw values, not aliases.
 
 ---
 
@@ -269,27 +283,40 @@ async function syncViaFigmaSkills(tokenMap, figmaUrl, tmpDir, cwd, onLine) {
   const promptPath = path.join(tmpDir, 'sync-prompt.txt');
   fs.writeFileSync(promptPath, prompt, 'utf-8');
 
+  // Build MCP config so the subprocess can access the Figma MCP server
+  const mcpConfig = buildMcpConfig();
+  const mcpConfigPath = path.join(tmpDir, 'mcp-config.json');
+  fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+
   try {
-    const result = await spawnClaudeCode(promptPath, cwd, onLine);
+    const result = await spawnClaudeCode(promptPath, mcpConfigPath, cwd, onLine);
     return result;
   } finally {
     if (fs.existsSync(promptPath)) fs.unlinkSync(promptPath);
+    if (fs.existsSync(mcpConfigPath)) fs.unlinkSync(mcpConfigPath);
   }
 }
 
 // ─── SPAWN CLAUDE CODE ────────────────────────────────────────────────────────
 
-function spawnClaudeCode(promptFilePath, cwd, onLine, timeoutMs = 180000) {
+function spawnClaudeCode(promptFilePath, mcpConfigPath, cwd, onLine, timeoutMs = 180000) {
   return new Promise((resolve, reject) => {
+    const prompt = fs.readFileSync(promptFilePath, 'utf-8');
+    const args = ['--print', '--dangerously-skip-permissions'];
+    if (mcpConfigPath) {
+      args.push('--mcp-config', mcpConfigPath);
+    }
     const child = spawn(
       'claude',
-      ['--print', '--dangerously-skip-permissions', '--message', `$(cat "${promptFilePath}")`],
+      args,
       {
         cwd,
-        shell: true,
         env: { ...process.env },
       }
     );
+
+    child.stdin.write(prompt);
+    child.stdin.end();
 
     let stdout = '';
     let stderr = '';
@@ -345,7 +372,7 @@ function spawnClaudeCode(promptFilePath, cwd, onLine, timeoutMs = 180000) {
 
 async function checkClaudeCode() {
   return new Promise((resolve) => {
-    const child = spawn('claude', ['--version'], { shell: true });
+    const child = spawn('claude', ['--version']);
     child.on('close', (code) => resolve(code === 0));
     child.on('error', () => resolve(false));
   });
@@ -353,7 +380,7 @@ async function checkClaudeCode() {
 
 async function checkFigmaMcp() {
   return new Promise((resolve) => {
-    const child = spawn('claude', ['mcp', 'list'], { shell: true });
+    const child = spawn('claude', ['mcp', 'list']);
     let output = '';
     child.stdout.on('data', d => { output += d.toString(); });
     child.stderr.on('data', d => { output += d.toString(); });
@@ -362,6 +389,40 @@ async function checkFigmaMcp() {
     });
     child.on('error', () => resolve(false));
   });
+}
+
+// ─── MCP CONFIG ──────────────────────────────────────────────────────────────
+
+function buildMcpConfig() {
+  // Read the user's Claude config to find the Figma MCP server
+  const home = process.env.HOME || process.env.USERPROFILE;
+  const configPath = path.join(home, '.claude.json');
+
+  if (fs.existsSync(configPath)) {
+    try {
+      const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+      const servers = config.mcpServers || {};
+      // Find any server with "figma" in the name
+      const figmaServers = {};
+      for (const [name, server] of Object.entries(servers)) {
+        if (name.toLowerCase().includes('figma')) {
+          figmaServers[name] = server;
+        }
+      }
+      if (Object.keys(figmaServers).length > 0) {
+        return { mcpServers: figmaServers };
+      }
+    } catch {
+      // Fall through to default
+    }
+  }
+
+  // Default: official Figma MCP server
+  return {
+    mcpServers: {
+      figma: { type: 'http', url: 'https://mcp.figma.com/mcp' },
+    },
+  };
 }
 
 // ─── UTILS ────────────────────────────────────────────────────────────────────

@@ -161,14 +161,14 @@ color/text/inverse         light → color/neutral/white     dark → color/neut
 
 ### color/border
 \`\`\`
-color/border/default       light → color/neutral/500       dark → color/neutral/500
+color/border/default       light → color/neutral/500       dark → color/neutral/100
 color/border/focus         light → color/brand/primary     dark → color/brand/accent
 \`\`\`
 
 ### color/icon
 \`\`\`
 color/icon/default         light → color/neutral/900       dark → color/neutral/100
-color/icon/subtle          light → color/neutral/500       dark → color/neutral/500
+color/icon/subtle          light → color/neutral/500       dark → color/neutral/100
 \`\`\`
 
 ### color/interactive
@@ -180,10 +180,10 @@ color/interactive/primaryActive  light → color/brand/dark        dark → colo
 
 ### color/feedback
 \`\`\`
-color/feedback/success     → color/feedback/success
-color/feedback/warning     → color/feedback/warning
-color/feedback/error       → color/feedback/error
-color/feedback/info        light → color/brand/primary    dark → color/brand/accent
+color/feedback/success     light → color/feedback/success  dark → color/feedback/success
+color/feedback/warning     light → color/feedback/warning  dark → color/feedback/warning
+color/feedback/error       light → color/feedback/error    dark → color/feedback/error
+color/feedback/info        light → color/brand/primary     dark → color/brand/accent
 \`\`\`
 
 ### Spacing aliases

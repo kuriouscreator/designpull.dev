@@ -47,7 +47,7 @@ export async function runDoctor(outputDir = process.cwd()) {
     name: 'Figma MCP server configured',
     status: figmaMcp ? 'pass' : 'fail',
     value: figmaMcp ? 'configured' : 'not found',
-    fix: figmaMcp ? null : 'Set up Figma MCP: https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP',
+    fix: figmaMcp ? null : 'Run: claude mcp add --transport http figma https://mcp.figma.com/mcp -s user',
   });
   if (figmaMcp) passed++;
 
@@ -145,7 +145,7 @@ export async function runDoctor(outputDir = process.cwd()) {
 
 async function getClaudeVersion() {
   return new Promise((resolve) => {
-    const child = spawn('claude', ['--version'], { shell: true });
+    const child = spawn('claude', ['--version']);
     let output = '';
     child.stdout.on('data', d => { output += d.toString(); });
     child.on('close', (code) => {
@@ -162,7 +162,7 @@ async function getClaudeVersion() {
 
 async function checkFigmaMcp() {
   return new Promise((resolve) => {
-    const child = spawn('claude', ['mcp', 'list'], { shell: true });
+    const child = spawn('claude', ['mcp', 'list']);
     let output = '';
     child.stdout.on('data', d => { output += d.toString(); });
     child.stderr.on('data', d => { output += d.toString(); });
@@ -175,7 +175,7 @@ async function checkFigmaMcp() {
 
 async function checkChakraMcp() {
   return new Promise((resolve) => {
-    const child = spawn('claude', ['mcp', 'list'], { shell: true });
+    const child = spawn('claude', ['mcp', 'list']);
     let output = '';
     child.stdout.on('data', d => { output += d.toString(); });
     child.stderr.on('data', d => { output += d.toString(); });
