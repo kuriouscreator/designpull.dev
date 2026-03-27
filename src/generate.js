@@ -13,7 +13,7 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
     `${pc.bgCyan(pc.black(' DesignPull '))}  ${pc.cyan('generate')}`
   );
 
-  // ── 1. Preflight checks (same as sync) ────────────────────────────────────
+  // ── 1. Preflight checks ─────────────────────────────────────────────────
   const claudeInstalled = await checkClaudeCode();
   if (!claudeInstalled) {
     p.log.error(
@@ -28,12 +28,9 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
   const mcpReady = await checkFigmaMcp();
   if (!mcpReady) {
     p.log.error(
-      `Figma Console MCP not found in your Claude Code config.\n\n` +
-      `Add it by running:\n\n` +
-      `  ${pc.cyan('claude mcp add figma-console -s user \\\n' +
-      '  -e FIGMA_ACCESS_TOKEN=figd_... \\\n' +
-      '  -e ENABLE_MCP_APPS=true \\\n' +
-      '  -- npx -y figma-console-mcp@latest')}\n\n` +
+      `Figma MCP server not found in your Claude Code config.\n\n` +
+      `Set it up by following:\n\n` +
+      `  ${pc.cyan('https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP')}\n\n` +
       `Then run ${pc.cyan('designpull generate')} again.`
     );
     process.exit(1);
@@ -63,7 +60,7 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
   p.log.message(
     `${pc.dim('Token map:    ')}${pc.white(tokenMapPath)}\n` +
     `${pc.dim('Figma file:   ')}${pc.white(figmaUrl || 'see .env')}\n` +
-    `${pc.dim('Generate via: ')}${pc.white('Claude Code + Figma Console MCP')}`
+    `${pc.dim('Generate via: ')}${pc.white('Claude Code + Figma MCP Skills')}`
   );
 
   // ── 4. Show which components will be generated ────────────────────────────
@@ -88,7 +85,7 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
 
   // ── 5. Confirm ─────────────────────────────────────────────────────────────
   const confirmed = await p.confirm({
-    message: `Generate ${components.length} components in Figma via MCP?`,
+    message: `Generate ${components.length} components in Figma via figma-use skill?`,
     initialValue: true,
   });
 
@@ -97,25 +94,9 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
     process.exit(0);
   }
 
-  // ── 6. Desktop Bridge reminder ────────────────────────────────────────────
-  p.log.message(
-    `${pc.yellow('!')} Make sure the ${pc.bold('Desktop Bridge')} plugin is running in your Figma file.\n` +
-    `  ${pc.dim('Figma Desktop → Plugins → Development → Figma Desktop Bridge')}`
-  );
-
-  const bridgeReady = await p.confirm({
-    message: 'Desktop Bridge is running in Figma',
-    initialValue: true,
-  });
-
-  if (p.isCancel(bridgeReady) || !bridgeReady) {
-    p.cancel('Start the Desktop Bridge plugin then run designpull generate again.');
-    process.exit(0);
-  }
-
-  // ── 7. Spawn Claude Code + MCP ────────────────────────────────────────────
+  // ── 6. Spawn Claude Code + Figma MCP Skills ──────────────────────────────
   const genSpinner = p.spinner();
-  genSpinner.start('Generating components in Figma via Claude Code MCP');
+  genSpinner.start('Generating components in Figma via Claude Code + figma-use');
 
   const tmpDir = path.join(outputDir, '.designpull');
   const tmpPromptPath = path.join(tmpDir, 'generate-prompt.txt');
@@ -147,10 +128,9 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
   } catch (err) {
     genSpinner.stop('Generate failed');
     p.log.error(
-      `Claude Code MCP error: ${err.message}\n\n` +
+      `Claude Code error: ${err.message}\n\n` +
       pc.dim('Common causes:\n') +
-      pc.dim('  · Desktop Bridge plugin not running in your Figma file\n') +
-      pc.dim('  · figma-console MCP not configured — run: claude mcp list\n') +
+      pc.dim('  · Figma MCP server not configured — run: designpull doctor\n') +
       pc.dim('  · Token map is invalid or empty\n')
     );
     process.exit(1);
@@ -164,8 +144,8 @@ export async function runGenerate(outputDir = process.cwd(), opts = {}) {
 // ─── GENERATE MCP PROMPT ──────────────────────────────────────────────────────
 
 function buildGenerateMcpPrompt(tokenMap, figmaUrl) {
-  return `You are generating Figma components using the Figma Console MCP.
-The Desktop Bridge plugin is running. Token variables are already created in the file.
+  return `You are generating Figma components using the figma-use skill.
+Token variables are already created in the file.
 
 Figma file: ${figmaUrl || 'the currently open Figma file'}
 
@@ -184,7 +164,7 @@ Create a page named "Components" if it doesn't exist. All generated components w
 
 ## STEP 2 — Generate Button component
 
-Use figma_execute to build the Button component on the Components page.
+Using the figma-use skill, build the Button component on the Components page.
 
 Variants to create:
 - Type: primary, secondary, ghost, danger
@@ -269,11 +249,11 @@ Do not stop between steps. Execute all steps now and report results when done.`;
 
 // ─── SPAWN CLAUDE CODE ────────────────────────────────────────────────────────
 
-function spawnClaudeCode(promptFilePath, cwd, onLine, timeoutMs = 120000) {
+function spawnClaudeCode(promptFilePath, cwd, onLine, timeoutMs = 180000) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       'claude',
-      ['--print', '--dangerously-skip-permissions', `--message`, `$(cat "${promptFilePath}")`],
+      ['--print', '--dangerously-skip-permissions', '--message', `$(cat "${promptFilePath}")`],
       {
         cwd,
         shell: true,
@@ -290,8 +270,7 @@ function spawnClaudeCode(promptFilePath, cwd, onLine, timeoutMs = 120000) {
       child.kill();
       reject(new Error(
         `Claude Code subprocess timed out after ${timeoutMs / 1000}s.\n` +
-        `The Desktop Bridge plugin may have disconnected.\n` +
-        `Restart the plugin in Figma and run designpull generate again.`
+        `Check that the Figma MCP server is configured correctly.`
       ));
     }, timeoutMs);
 

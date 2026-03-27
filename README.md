@@ -7,14 +7,14 @@
 
 **Code in. Design out. Ship faster.**
 
-DesignPull is a command-line tool that scaffolds design token files and writes them to Figma as live variables via Claude Code + Figma Console MCP. Define your design system in markdown, sync to Figma, and generate production-ready components — all from your terminal.
+DesignPull is a command-line tool that scaffolds design token files and writes them to Figma as live variables via Claude Code + Figma MCP Skills. Define your design system in markdown, sync to Figma, and generate production-ready components — all from your terminal.
 
 ---
 
 ## What it does
 
 1. **Scaffolds a complete design token system** in a single markdown file (`design-token.md`)
-2. **Writes tokens to Figma as variables** (primitives, semantic tokens, typography) via MCP — no REST API, no manual copy-paste
+2. **Writes tokens to Figma as variables** (primitives, semantic tokens, typography) via Figma MCP Skills — no plugins, no manual copy-paste
 3. **Generates Figma components** (Button, Input, Card, etc.) that reference your tokens — zero hardcoded values
 
 ---
@@ -23,10 +23,8 @@ DesignPull is a command-line tool that scaffolds design token files and writes t
 
 - **Node.js 20+** — [nodejs.org](https://nodejs.org)
 - **Claude Code CLI** — `npm install -g @anthropic-ai/claude-code`
-- **Figma Console MCP** — configured via Claude Code (see [MCP Setup](#mcp-setup) below)
-- **Figma Desktop** — variables API only works in Desktop, not browser
-- **Anthropic API key** — for token parsing ([console.anthropic.com](https://console.anthropic.com))
-- **Figma Personal Access Token** — with file content (read) + variables (read/write) scopes
+- **Figma MCP Server** — configured via Claude Code (see [MCP Setup](#mcp-setup) below)
+- **Figma Personal Access Token** — with file content (read) + edit access
 
 ---
 
@@ -57,7 +55,7 @@ designpull init
 
 This generates:
 - `design-token.md` — your single source of truth for design tokens
-- `.env` — Figma credentials and Anthropic API key
+- `.env` — Figma credentials
 - `.gitignore` — ensures `.env` is not committed
 
 Follow the interactive prompts to set up:
@@ -74,16 +72,17 @@ designpull sync
 ```
 
 This:
-- Parses `design-token.md` using Claude (Sonnet 4)
+- Parses `design-token.md` using a local deterministic parser
 - Creates 3 variable collections in Figma:
   - **Primitives** — raw values (colors, spacing, radii, etc.)
   - **Semantic** — intent-based aliases to primitives (Light/Dark modes)
   - **Typography** — type scale (Desktop/Mobile modes)
-- Writes all variables to your Figma file via the Figma Console MCP
+- Writes all variables to your Figma file via Claude Code + `figma-use` skill
 
 **Requirements:**
-- Desktop Bridge plugin running in your Figma file (`Plugins → Development → Figma Desktop Bridge`)
-- Valid `ANTHROPIC_API_KEY` and `FIGMA_ACCESS_TOKEN` in `.env`
+- Figma MCP server configured in Claude Code
+- Valid `FIGMA_ACCESS_TOKEN` in `.env`
+- Edit access to the target Figma file
 
 **Options:**
 - `--dry-run` — parse tokens and preview without writing to Figma
@@ -107,7 +106,7 @@ All components reference variables from your token system — no hardcoded value
 
 ## MCP Setup
 
-DesignPull uses **Claude Code** to orchestrate writes to Figma via the **Figma Console MCP**. You need to configure both:
+DesignPull uses **Claude Code** to write variables to Figma via **Figma MCP Skills** (`figma-use`). You need to configure both:
 
 ### Install Claude Code
 
@@ -115,16 +114,13 @@ DesignPull uses **Claude Code** to orchestrate writes to Figma via the **Figma C
 npm install -g @anthropic-ai/claude-code
 ```
 
-### Add Figma Console MCP
+### Set up Figma MCP Server
 
-```bash
-claude mcp add figma-console -s user \
-  -e FIGMA_ACCESS_TOKEN=figd_your_token_here \
-  -e ENABLE_MCP_APPS=true \
-  -- npx -y figma-console-mcp@latest
-```
+Follow Figma's official guide to configure the MCP server:
 
-Replace `figd_your_token_here` with your actual Figma Personal Access Token.
+**[Figma Skills for MCP — Setup Guide](https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP)**
+
+This enables the `figma-use` skill, which powers write-to-canvas. It can create frames, place components, set up variables, and arrange layouts directly in your Figma file.
 
 ### Verify MCP is configured
 
@@ -132,7 +128,7 @@ Replace `figd_your_token_here` with your actual Figma Personal Access Token.
 claude mcp list
 ```
 
-You should see `figma-console` in the list.
+You should see `figma` (or similar) in the list.
 
 ### (Optional) Add Chakra UI MCP
 
@@ -190,58 +186,27 @@ Components **never** reference primitives directly — they only use semantic to
 
 ## How the sync works
 
-DesignPull **does not use Figma's REST API**. Here's why:
-
-1. **REST API doesn't support variable creation** — you can read variables, but not write them
-2. **Figma Plugins can write variables** — but only via the plugin environment (not REST)
-3. **Solution: MCP + Claude Code** — we spawn Claude Code as a subprocess, which has the Figma Console MCP active, which runs a plugin in Figma Desktop that can write variables
-
-### The flow
-
 ```
 design-token.md
-  ↓ (Claude API parses)
+  ↓ (local parser)
 token-map.json
   ↓ (DesignPull CLI spawns)
 Claude Code subprocess
-  ↓ (Figma Console MCP calls)
-Desktop Bridge plugin in Figma
-  ↓ (Plugin API writes)
+  ↓ (figma-use skill)
 Figma variables
 ```
 
-This is the **only** way to programmatically write Figma variables from a local CLI tool. The Desktop Bridge plugin must be running in your Figma file for this to work.
+DesignPull parses your `design-token.md` locally into a structured `token-map.json`, then uses Claude Code with the `figma-use` skill to write variables directly to your Figma file. The `figma-use` skill is part of Figma's official MCP server — no plugins or desktop bridge needed.
 
 ---
 
 ## Troubleshooting
 
-### Desktop Bridge plugin not running
+### Figma MCP not configured
 
-**Error:** `Claude Code subprocess timed out` or `MCP connection failed`
+**Error:** `Figma MCP server not found in your Claude Code config`
 
-**Fix:**
-1. Open your Figma file in **Figma Desktop** (not browser)
-2. Right-click anywhere on canvas
-3. `Plugins → Development → Figma Desktop Bridge`
-4. Leave the plugin open while running `designpull sync` or `designpull generate`
-
----
-
-### MCP not found
-
-**Error:** `Figma Console MCP not found in your Claude Code config`
-
-**Fix:**
-
-```bash
-claude mcp add figma-console -s user \
-  -e FIGMA_ACCESS_TOKEN=figd_your_token_here \
-  -e ENABLE_MCP_APPS=true \
-  -- npx -y figma-console-mcp@latest
-```
-
-Verify:
+**Fix:** Follow [Figma's MCP setup guide](https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP) and verify with:
 
 ```bash
 claude mcp list
@@ -255,13 +220,11 @@ claude mcp list
 
 **Fix:**
 1. Go to [figma.com](https://figma.com) → Account Settings → Security → Personal Access Tokens
-2. Create a new token with these scopes:
-   - **File content (read)**
-   - **Variables (read/write)** *(if available — Enterprise plan only)*
+2. Create a new token with **File content (read)** scope
 3. Copy the token (starts with `figd_`)
 4. Open `.env` and set `FIGMA_ACCESS_TOKEN=figd_your_token_here`
 
-**Note:** Variables API requires Figma Enterprise plan. If you don't have it, DesignPull will fall back to console-based extraction (you'll get a snippet to run in Figma's plugin console).
+You also need **edit access** to the target Figma file for the `figma-use` skill to write variables.
 
 ---
 
@@ -271,9 +234,9 @@ claude mcp list
 
 **Fix:**
 - Check `design-token.md` for syntax errors
-- Ensure all three sections exist: Primitives, Semantic, Typography
-- Review `.designpull/failed-parse.json` to see what Claude extracted
-- If Claude output is malformed, file a bug at [github.com/kuriouscreator/designpull/issues](https://github.com/kuriouscreator/designpull/issues)
+- Ensure all three sections exist: Primitive Tokens, Semantic Tokens, Typography Scale
+- Review `.designpull/failed-parse.json` for debugging
+- File a bug at [github.com/kuriouscreator/designpull/issues](https://github.com/kuriouscreator/designpull/issues)
 
 ---
 
@@ -304,10 +267,10 @@ npm install
 node src/index.js --help
 ```
 
-Test a command:
+Run tests:
 
 ```bash
-node src/index.js init
+npm test
 ```
 
 ---
@@ -321,7 +284,15 @@ designpull/
 │   ├── init.js         # designpull init
 │   ├── sync.js         # designpull sync
 │   ├── generate.js     # designpull generate
-│   └── doctor.js       # designpull doctor
+│   ├── doctor.js       # designpull doctor
+│   ├── parser.js       # Local design token parser
+│   └── utils.js        # .env parsing utility
+├── test/
+│   ├── parser.test.js  # Parser tests (30 tests)
+│   ├── sync.test.js    # Sync tests
+│   ├── init.test.js    # Init tests
+│   ├── generate.test.js# Generate tests
+│   └── doctor.test.js  # Doctor tests
 ├── package.json
 ├── .env.example
 └── README.md
@@ -335,7 +306,6 @@ See `.env.example` for the full list. Required:
 
 - `FIGMA_FILE_URL` — your Figma file URL
 - `FIGMA_ACCESS_TOKEN` — Figma Personal Access Token (starts with `figd_`)
-- `ANTHROPIC_API_KEY` — Anthropic API key for token parsing
 
 ---
 

@@ -8,20 +8,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 vi.mock('fs');
-vi.mock('@anthropic-ai/sdk');
-vi.mock('@modelcontextprotocol/sdk/client/index.js');
 vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
   spinner: vi.fn(() => ({
     start: vi.fn(),
     stop: vi.fn(),
+    message: vi.fn(),
   })),
+  confirm: vi.fn(),
+  isCancel: vi.fn(),
+  cancel: vi.fn(),
   log: {
     error: vi.fn(),
     success: vi.fn(),
     info: vi.fn(),
+    warn: vi.fn(),
+    message: vi.fn(),
   },
+  note: vi.fn(),
 }));
 
 describe('sync command', () => {
@@ -44,18 +49,25 @@ describe('sync command', () => {
       const requiredVars = [
         'FIGMA_FILE_URL',
         'FIGMA_ACCESS_TOKEN',
-        'ANTHROPIC_API_KEY',
       ];
 
       const mockEnv = {
         FIGMA_FILE_URL: 'https://figma.com/design/test',
         FIGMA_ACCESS_TOKEN: 'figd_test',
-        ANTHROPIC_API_KEY: 'sk-test',
       };
 
       requiredVars.forEach(varName => {
         expect(mockEnv[varName]).toBeDefined();
       });
+    });
+
+    it('should not require ANTHROPIC_API_KEY', () => {
+      const requiredVars = [
+        'FIGMA_FILE_URL',
+        'FIGMA_ACCESS_TOKEN',
+      ];
+
+      expect(requiredVars).not.toContain('ANTHROPIC_API_KEY');
     });
 
     it('should fail if .env file is missing', () => {
@@ -67,8 +79,7 @@ describe('sync command', () => {
 
     it('should parse .env file correctly', () => {
       const envContent = `FIGMA_FILE_URL=https://figma.com/design/test
-FIGMA_ACCESS_TOKEN=figd_test_token
-ANTHROPIC_API_KEY=sk-test-key`;
+FIGMA_ACCESS_TOKEN=figd_test_token`;
 
       const parsed = envContent.split('\n').reduce((acc, line) => {
         const [key, value] = line.split('=');
@@ -156,7 +167,7 @@ ANTHROPIC_API_KEY=sk-test-key`;
     });
   });
 
-  describe('token parsing with Claude API', () => {
+  describe('local token parsing', () => {
     it('should handle valid token response', async () => {
       const mockResponse = {
         collections: [
@@ -180,14 +191,6 @@ ANTHROPIC_API_KEY=sk-test-key`;
       expect(mockResponse.collections[0].variables).toHaveLength(1);
     });
 
-    it('should handle malformed JSON response', () => {
-      const malformedJSON = '{ collections: [ invalid }';
-
-      expect(() => {
-        JSON.parse(malformedJSON);
-      }).toThrow();
-    });
-
     it('should validate variable structure', () => {
       const validVariable = {
         name: 'color/primary',
@@ -200,7 +203,7 @@ ANTHROPIC_API_KEY=sk-test-key`;
       expect(validVariable).toHaveProperty('name');
       expect(validVariable).toHaveProperty('type');
       expect(validVariable).toHaveProperty('values');
-      expect(['COLOR', 'FLOAT', 'STRING', 'BOOLEAN']).toContain(validVariable.type);
+      expect(['COLOR', 'FLOAT', 'STRING']).toContain(validVariable.type);
     });
   });
 
@@ -224,24 +227,18 @@ ANTHROPIC_API_KEY=sk-test-key`;
   });
 
   describe('error handling', () => {
-    it('should handle Claude API errors', async () => {
-      const mockError = new Error('API rate limit exceeded');
+    it('should handle parse errors', async () => {
+      const mockError = new Error('Parse failed: invalid markdown structure');
 
       expect(() => {
         throw mockError;
-      }).toThrow('API rate limit exceeded');
+      }).toThrow('Parse failed');
     });
 
-    it('should handle MCP connection timeout', async () => {
-      const timeoutError = new Error('Connection timeout after 60s');
+    it('should handle Claude Code subprocess errors', async () => {
+      const subprocessError = new Error('Claude Code exited with code 1');
 
-      expect(timeoutError.message).toContain('timeout');
-    });
-
-    it('should handle missing Desktop Bridge plugin', () => {
-      const pluginError = 'Desktop Bridge plugin not found';
-
-      expect(pluginError).toContain('Desktop Bridge');
+      expect(subprocessError.message).toContain('Claude Code');
     });
   });
 

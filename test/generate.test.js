@@ -12,11 +12,17 @@ vi.mock('@clack/prompts', () => ({
   spinner: vi.fn(() => ({
     start: vi.fn(),
     stop: vi.fn(),
+    message: vi.fn(),
   })),
+  confirm: vi.fn(),
+  isCancel: vi.fn(),
+  cancel: vi.fn(),
+  note: vi.fn(),
   log: {
     error: vi.fn(),
     success: vi.fn(),
     info: vi.fn(),
+    message: vi.fn(),
   },
 }));
 
@@ -41,7 +47,7 @@ describe('generate command', () => {
       expect(claudeCheck).toBe('claude --version');
     });
 
-    it('should check for Figma Console MCP', () => {
+    it('should check for Figma MCP server', () => {
       const mcpCheck = 'claude mcp list';
 
       expect(mcpCheck).toBe('claude mcp list');
@@ -94,7 +100,6 @@ describe('generate command', () => {
       const args = ['--print'];
       const prompt = 'Generate Figma components';
 
-      // Mock spawn
       mockSpawn('claude', args, {
         stdio: ['pipe', 'inherit', 'inherit'],
       });
@@ -137,6 +142,12 @@ describe('generate command', () => {
       expect(prompt).toContain('Semantic');
     });
 
+    it('should reference figma-use skill', () => {
+      const prompt = 'Using the figma-use skill, create components in Figma';
+
+      expect(prompt).toContain('figma-use');
+    });
+
     it('should specify no hardcoded values rule', () => {
       const rule = 'All component properties must reference variables. No hardcoded colors, spacing, or typography values.';
 
@@ -159,9 +170,9 @@ describe('generate command', () => {
     });
 
     it('should handle missing MCP configuration', () => {
-      const error = 'Figma Console MCP not found in Claude Code config';
+      const error = 'Figma MCP server not found in Claude Code config';
 
-      expect(error).toContain('MCP not found');
+      expect(error).toContain('MCP');
     });
 
     it('should handle missing token map', () => {

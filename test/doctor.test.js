@@ -9,12 +9,14 @@ vi.mock('child_process');
 vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
+  note: vi.fn(),
   log: {
     error: vi.fn(),
     success: vi.fn(),
     warn: vi.fn(),
     info: vi.fn(),
     step: vi.fn(),
+    message: vi.fn(),
   },
 }));
 
@@ -85,39 +87,30 @@ describe('doctor command', () => {
     });
   });
 
-  describe('Figma Console MCP check', () => {
-    it('should detect MCP in Claude config', () => {
-      const mockMcpList = `figma-console
+  describe('Figma MCP check', () => {
+    it('should detect Figma MCP in Claude config', () => {
+      const mockMcpList = `figma
 chakra-ui`;
 
-      expect(mockMcpList).toContain('figma-console');
+      expect(mockMcpList.toLowerCase()).toContain('figma');
     });
 
-    it('should handle missing MCP', () => {
+    it('should handle missing Figma MCP', () => {
       const mockMcpList = 'chakra-ui';
 
-      expect(mockMcpList).not.toContain('figma-console');
+      expect(mockMcpList.toLowerCase()).not.toContain('figma');
     });
 
     it('should parse mcp list output', () => {
-      const output = 'figma-console\nchakra-ui\nother-mcp';
+      const output = 'figma\nchakra-ui\nother-mcp';
       const mcps = output.split('\n').filter(Boolean);
 
       expect(mcps).toHaveLength(3);
-      expect(mcps).toContain('figma-console');
+      expect(mcps).toContain('figma');
     });
   });
 
   describe('environment variables check', () => {
-    it('should check for ANTHROPIC_API_KEY', () => {
-      const mockEnv = {
-        ANTHROPIC_API_KEY: 'sk-ant-test123',
-      };
-
-      expect(mockEnv.ANTHROPIC_API_KEY).toBeDefined();
-      expect(mockEnv.ANTHROPIC_API_KEY).toMatch(/^sk-ant-/);
-    });
-
     it('should check for FIGMA_ACCESS_TOKEN', () => {
       const mockEnv = {
         FIGMA_ACCESS_TOKEN: 'figd_test123',
@@ -127,32 +120,16 @@ chakra-ui`;
       expect(mockEnv.FIGMA_ACCESS_TOKEN).toMatch(/^figd_/);
     });
 
+    it('should not check for ANTHROPIC_API_KEY', () => {
+      // ANTHROPIC_API_KEY is no longer required
+      const requiredEnvVars = ['FIGMA_ACCESS_TOKEN'];
+      expect(requiredEnvVars).not.toContain('ANTHROPIC_API_KEY');
+    });
+
     it('should handle missing environment variables', () => {
       const mockEnv = {};
 
-      expect(mockEnv.ANTHROPIC_API_KEY).toBeUndefined();
       expect(mockEnv.FIGMA_ACCESS_TOKEN).toBeUndefined();
-    });
-
-    it('should validate API key format', () => {
-      const validKeys = [
-        'sk-ant-api03-abcd1234',
-        'sk-ant-test-xyz789',
-      ];
-
-      const invalidKeys = [
-        'invalid-key',
-        '',
-        'sk-openai-123',
-      ];
-
-      validKeys.forEach(key => {
-        expect(key).toMatch(/^sk-ant-/);
-      });
-
-      invalidKeys.forEach(key => {
-        expect(key).not.toMatch(/^sk-ant-/);
-      });
     });
   });
 
@@ -195,16 +172,16 @@ chakra-ui`;
 
   describe('optional checks', () => {
     it('should check for Chakra UI MCP (optional)', () => {
-      const mcpList = ['figma-console', 'chakra-ui'];
+      const mcpList = ['figma', 'chakra-ui'];
 
       const hasChakra = mcpList.includes('chakra-ui');
       expect(hasChakra).toBe(true);
     });
 
     it('should not fail without optional MCPs', () => {
-      const mcpList = ['figma-console'];
+      const mcpList = ['figma'];
 
-      const hasRequired = mcpList.includes('figma-console');
+      const hasRequired = mcpList.includes('figma');
       const hasChakra = mcpList.includes('chakra-ui');
 
       expect(hasRequired).toBe(true);
@@ -218,11 +195,10 @@ chakra-ui`;
         { name: 'Node.js', passed: true },
         { name: 'Claude Code', passed: true },
         { name: 'Figma MCP', passed: false },
-        { name: 'API Key', passed: true },
       ];
 
       const passedCount = checks.filter(c => c.passed).length;
-      expect(passedCount).toBe(3);
+      expect(passedCount).toBe(2);
     });
 
     it('should count failed checks', () => {
@@ -259,17 +235,10 @@ chakra-ui`;
       expect(fix).toContain('npm install -g @anthropic-ai/claude-code');
     });
 
-    it('should provide fix for missing MCP', () => {
-      const fix = 'Add Figma Console MCP: claude mcp add figma-console';
+    it('should provide fix for missing Figma MCP', () => {
+      const fix = 'Set up Figma MCP: https://help.figma.com/hc/en-us/articles/39166810751895';
 
-      expect(fix).toContain('claude mcp add');
-    });
-
-    it('should provide fix for missing API key', () => {
-      const fix = 'Set ANTHROPIC_API_KEY in .env file';
-
-      expect(fix).toContain('ANTHROPIC_API_KEY');
-      expect(fix).toContain('.env');
+      expect(fix).toContain('figma.com');
     });
   });
 

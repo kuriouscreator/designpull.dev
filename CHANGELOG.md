@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-03-26
+
+### Changed
+
+#### Migrated to Figma MCP Skills
+- **Replaced figma-console-mcp + Desktop Bridge** with Figma's official MCP skills (`figma-use`). Variables are now written directly to Figma files — no Desktop Bridge plugin needed.
+- **Replaced Claude API token parsing** with a local deterministic parser (`src/parser.js`). Zero-dependency, instant, fully testable. Handles all 4 markdown patterns from `design-token.md`.
+- **`designpull sync`** now uses the local parser for `design-token.md` → `token-map.json`, then spawns Claude Code with the `figma-use` skill to write variables to Figma.
+- **`designpull generate`** prompts updated to use `figma-use` skill instead of `figma_execute`.
+- **`designpull doctor`** checks for Figma MCP server instead of Figma Console MCP. Removed `ANTHROPIC_API_KEY` check.
+- **`designpull init`** no longer asks for Anthropic API key. Removed Desktop Bridge plugin orchestration.
+
+### Added
+- `src/parser.js` — Local deterministic parser for `design-token.md` with 4 pattern handlers (primitives, semantic light/dark, shared aliases, typography scale)
+- `test/parser.test.js` — 30 tests covering all parsing patterns, edge cases, and schema validation
+
+### Removed
+- **3 dependencies removed:** `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `ws`
+- **`scripts/` directory removed:** `mcp-wrapper.js`, `mcp-server.sh`, `mcp-server.bat` (managed figma-console-mcp lifecycle)
+- **4 npm scripts removed:** `mcp:start`, `mcp:stop`, `mcp:restart`, `mcp:status`
+- `ANTHROPIC_API_KEY` no longer required in `.env`
+- Desktop Bridge plugin detection, WebSocket port scanning, zombie process cleanup
+
+### Technical Details
+- Runtime dependencies reduced from 6 to 3: `@clack/prompts`, `commander`, `picocolors`
+- Net code reduction: ~2,100 lines removed
+- 106 tests across 5 test files (all passing)
+
 ## [0.1.0] - 2026-03-08
 
 ### Added
@@ -79,4 +107,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Anthropic API key
 - Figma Personal Access Token
 
+[0.2.0]: https://github.com/kuriouscreator/designpull/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/kuriouscreator/designpull/releases/tag/v0.1.0
