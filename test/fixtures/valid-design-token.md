@@ -9,6 +9,8 @@ Name: Test Project
 Description: A test design system
 Component library: Chakra UI
 Styling: CSS Modules
+Text styles: yes
+Effect styles: yes
 
 ---
 

@@ -6,6 +6,17 @@ const SAMPLE_MARKDOWN = `# design-token.md
 
 ---
 
+## Project
+
+Name: Test Project
+Description: A test design system
+Component library: Chakra UI
+Styling: CSS Modules
+Text styles: yes
+Effect styles: yes
+
+---
+
 ## Primitive Tokens
 
 ### Colors — Brand
@@ -335,6 +346,99 @@ describe('parser', () => {
           expect(['COLOR', 'FLOAT', 'STRING']).toContain(variable.type);
         }
       }
+    });
+  });
+
+  describe('meta flags', () => {
+    it('should parse textStyles and effectStyles from Project section', () => {
+      expect(result.meta).toBeDefined();
+      expect(result.meta.textStyles).toBe(true);
+      expect(result.meta.effectStyles).toBe(true);
+    });
+
+    it('should default to false when meta lines are absent', () => {
+      const noMeta = parseDesignTokens('## Primitive Tokens\n');
+      expect(noMeta.meta.textStyles).toBe(false);
+      expect(noMeta.meta.effectStyles).toBe(false);
+    });
+
+    it('should handle "no" values', () => {
+      const noStyles = parseDesignTokens('## Project\nText styles: no\nEffect styles: no\n');
+      expect(noStyles.meta.textStyles).toBe(false);
+      expect(noStyles.meta.effectStyles).toBe(false);
+    });
+  });
+
+  describe('composites — text styles', () => {
+    it('should produce text style composites when meta.textStyles is true', () => {
+      expect(result.composites).toBeDefined();
+      expect(result.composites.textStyles.length).toBeGreaterThan(0);
+    });
+
+    it('should create one entry per mode per typography style', () => {
+      // 3 styles (h1, body/md, code) × 2 modes = 6
+      expect(result.composites.textStyles).toHaveLength(6);
+    });
+
+    it('should include correct properties for Desktop/h1', () => {
+      const desktopH1 = result.composites.textStyles.find(s => s.name === 'Desktop/h1');
+      expect(desktopH1).toBeDefined();
+      expect(desktopH1.fontSize).toBe(48);
+      expect(desktopH1.lineHeight).toBe(56);
+      expect(desktopH1.fontWeight).toBe(500);
+      expect(desktopH1.fontStyle).toBe('Medium');
+      expect(desktopH1.fontFamily).toBe('Inter');
+    });
+
+    it('should include correct properties for Mobile/h1', () => {
+      const mobileH1 = result.composites.textStyles.find(s => s.name === 'Mobile/h1');
+      expect(mobileH1).toBeDefined();
+      expect(mobileH1.fontSize).toBe(30);
+      expect(mobileH1.lineHeight).toBe(38);
+    });
+
+    it('should use mono font for code styles', () => {
+      const desktopCode = result.composites.textStyles.find(s => s.name === 'Desktop/code');
+      expect(desktopCode).toBeDefined();
+      expect(desktopCode.fontFamily).toBe('IBM Plex Mono');
+    });
+
+    it('should not produce text styles when meta.textStyles is false', () => {
+      const noStyles = parseDesignTokens(SAMPLE_MARKDOWN.replace('Text styles: yes', 'Text styles: no'));
+      expect(noStyles.composites.textStyles).toHaveLength(0);
+    });
+  });
+
+  describe('composites — elevation styles', () => {
+    it('should produce elevation style composites when meta.effectStyles is true', () => {
+      expect(result.composites.elevationStyles.length).toBeGreaterThan(0);
+    });
+
+    it('should parse shadow string into structured effects', () => {
+      const sm = result.composites.elevationStyles.find(s => s.name === 'elevation/sm');
+      expect(sm).toBeDefined();
+      expect(sm.effects).toHaveLength(1);
+      expect(sm.effects[0].type).toBe('DROP_SHADOW');
+      expect(sm.effects[0].offsetX).toBe(0);
+      expect(sm.effects[0].offsetY).toBe(1);
+      expect(sm.effects[0].blur).toBe(2);
+      expect(sm.effects[0].r).toBe(0);
+      expect(sm.effects[0].g).toBe(0);
+      expect(sm.effects[0].b).toBe(0);
+      expect(sm.effects[0].a).toBe(0.08);
+    });
+
+    it('should parse elevation/lg correctly', () => {
+      const lg = result.composites.elevationStyles.find(s => s.name === 'elevation/lg');
+      expect(lg).toBeDefined();
+      expect(lg.effects[0].offsetY).toBe(8);
+      expect(lg.effects[0].blur).toBe(24);
+      expect(lg.effects[0].a).toBe(0.12);
+    });
+
+    it('should not produce elevation styles when meta.effectStyles is false', () => {
+      const noStyles = parseDesignTokens(SAMPLE_MARKDOWN.replace('Effect styles: yes', 'Effect styles: no'));
+      expect(noStyles.composites.elevationStyles).toHaveLength(0);
     });
   });
 

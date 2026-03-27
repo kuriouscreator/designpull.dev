@@ -17,6 +17,14 @@ const WEIGHT_MAP = {
   bold: 700,
 };
 
+const WEIGHT_STYLE_MAP = {
+  300: 'Light',
+  400: 'Regular',
+  500: 'Medium',
+  600: 'SemiBold',
+  700: 'Bold',
+};
+
 // ─── TYPE INFERENCE ──────────────────────────────────────────────────────────
 
 function inferType(value) {
@@ -315,6 +323,7 @@ function parseTypography(markdown, primitiveLookup) {
     name: 'Typography',
     modes: ['Desktop', 'Mobile'],
     variables,
+    _variableMap: variableMap,
   };
 }
 
@@ -327,23 +336,127 @@ function descriptionFromName(name) {
     .join(' ');
 }
 
+// ─── PROJECT META ────────────────────────────────────────────────────────────
+
+function parseProjectMeta(markdown) {
+  const lines = markdown.split('\n');
+  let inSection = false;
+  const meta = { textStyles: false, effectStyles: false };
+
+  for (const line of lines) {
+    if (/^## Project/.test(line)) { inSection = true; continue; }
+    if (inSection && /^## /.test(line)) break;
+    if (!inSection) continue;
+
+    const textMatch = line.match(/^Text styles:\s*(yes|no)/i);
+    if (textMatch) meta.textStyles = textMatch[1].toLowerCase() === 'yes';
+
+    const effectMatch = line.match(/^Effect styles:\s*(yes|no)/i);
+    if (effectMatch) meta.effectStyles = effectMatch[1].toLowerCase() === 'yes';
+  }
+
+  return meta;
+}
+
+// ─── ELEVATION EFFECTS ──────────────────────────────────────────────────────
+
+function parseElevationEffects(primitives) {
+  const elevationVars = primitives.variables.filter(
+    v => v.name.startsWith('elevation/') && v.type === 'STRING'
+  );
+
+  return elevationVars.map(v => {
+    const raw = v.values.Default;
+    // Pattern: "0 1px 2px rgba(0,0,0,0.08)" or "0 4px 8px rgba(0,0,0,0.10)"
+    const match = raw.match(
+      /^(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)px\s+(-?\d+(?:\.\d+)?)px\s+rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)$/
+    );
+
+    if (!match) {
+      return { name: v.name, raw, effects: [] };
+    }
+
+    const [, offsetX, offsetY, blur, r, g, b, a] = match;
+    return {
+      name: v.name,
+      effects: [{
+        type: 'DROP_SHADOW',
+        offsetX: parseFloat(offsetX),
+        offsetY: parseFloat(offsetY),
+        blur: parseFloat(blur),
+        r: parseInt(r, 10) / 255,
+        g: parseInt(g, 10) / 255,
+        b: parseInt(b, 10) / 255,
+        a: parseFloat(a),
+      }],
+    };
+  });
+}
+
+// ─── TYPOGRAPHY COMPOSITES ──────────────────────────────────────────────────
+
+function buildTypographyComposites(variableMap, defaultFont) {
+  const composites = [];
+
+  for (const [name, data] of variableMap) {
+    const family = data.fontFamily || defaultFont;
+    const weightValue = WEIGHT_MAP[data.weight] ?? 400;
+    const fontStyle = WEIGHT_STYLE_MAP[weightValue] || 'Regular';
+
+    for (const mode of ['Desktop', 'Mobile']) {
+      composites.push({
+        name: `${mode}/${name}`,
+        fontSize: data.fontSize[mode],
+        lineHeight: data.lineHeight[mode],
+        fontWeight: weightValue,
+        fontStyle,
+        fontFamily: family,
+      });
+    }
+  }
+
+  return composites;
+}
+
 // ─── MAIN PARSER ─────────────────────────────────────────────────────────────
 
 export function parseDesignTokens(markdown) {
-  // Step 1: Parse primitives and build lookup
+  // Step 1: Parse project meta
+  const meta = parseProjectMeta(markdown);
+
+  // Step 2: Parse primitives and build lookup
   const primitives = parsePrimitives(markdown);
   const primitiveLookup = {};
   for (const v of primitives.variables) {
     primitiveLookup[v.name] = v.values.Default;
   }
 
-  // Step 2: Parse semantic tokens (resolving aliases via lookup)
+  // Step 3: Parse semantic tokens (resolving aliases via lookup)
   const semantic = parseSemanticTokens(markdown, primitiveLookup);
 
-  // Step 3: Parse typography
+  // Step 4: Parse typography
   const typography = parseTypography(markdown, primitiveLookup);
+
+  // Step 5: Build composites
+  const composites = { textStyles: [], elevationStyles: [] };
+
+  if (meta.textStyles) {
+    composites.textStyles = buildTypographyComposites(
+      typography._variableMap,
+      primitiveLookup['typography/family/sans'] || 'sans-serif'
+    );
+  }
+
+  if (meta.effectStyles) {
+    composites.elevationStyles = parseElevationEffects(primitives);
+  }
+
+  // Clean up internal property
+  delete typography._variableMap;
 
   return {
     collections: [primitives, semantic, typography],
+    meta,
+    composites,
   };
 }

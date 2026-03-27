@@ -22,6 +22,8 @@ function generateTokenFile(answers) {
     fontMono,
     darkModeSurface,
     darkModeRaised,
+    createTextStyles,
+    createEffectStyles,
   } = answers;
 
   return `# design-token.md
@@ -36,6 +38,8 @@ Name: ${projectName}
 Description: ${projectDescription}
 Component library: ${componentLibrary}
 Styling: ${styling}
+Text styles: ${createTextStyles ? 'yes' : 'no'}
+Effect styles: ${createEffectStyles ? 'yes' : 'no'}
 
 ---
 
@@ -529,7 +533,31 @@ export async function runInit(outputDir = process.cwd()) {
     { onCancel: () => { p.cancel('Setup cancelled.'); process.exit(0); } }
   );
 
-  // ── SECTION 5: Figma ────────────────────────────────────────────────────────
+  // ── SECTION 5: Figma Styles ────────────────────────────────────────────────
+  p.log.step(pc.bold('Figma Styles'));
+  p.log.message(
+    pc.dim('Variables are always created. Styles are optional composites that\n') +
+    pc.dim('designers apply directly to layers in Figma.')
+  );
+
+  const figmaStyles = await p.group(
+    {
+      createTextStyles: () =>
+        p.confirm({
+          message: 'Create text styles in Figma? (e.g. Desktop/h1, Mobile/body/md)',
+          initialValue: true,
+        }),
+
+      createEffectStyles: () =>
+        p.confirm({
+          message: 'Create elevation effect styles in Figma? (e.g. elevation/sm shadow)',
+          initialValue: true,
+        }),
+    },
+    { onCancel: () => { p.cancel('Setup cancelled.'); process.exit(0); } }
+  );
+
+  // ── SECTION 6: Figma ────────────────────────────────────────────────────────
   p.log.step(pc.bold('Figma'));
   p.log.message(
     pc.dim('DesignPull needs a Figma Personal Access Token to sync tokens.\n\n') +
@@ -586,7 +614,7 @@ export async function runInit(outputDir = process.cwd()) {
   spinner.start('Writing project files');
 
   // 1. design-token.md
-  const allAnswers = { ...project, ...colors, ...typography, ...darkMode };
+  const allAnswers = { ...project, ...colors, ...typography, ...darkMode, ...figmaStyles };
   const tokenContent = generateTokenFile(allAnswers);
   fs.writeFileSync(outputPath, tokenContent, 'utf-8');
 

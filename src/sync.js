@@ -159,12 +159,21 @@ export async function runSync(outputDir = process.cwd(), opts = {}) {
 
   // Handle --dry-run flag
   if (opts.dryRun) {
-    p.note(
-      `${pc.green('✓')} Token map parsed and saved to .designpull/token-map.json\n` +
-      `${pc.dim('Review the file to verify before syncing.')}\n\n` +
-      pc.dim('Run ') + pc.cyan('designpull sync') + pc.dim(' without --dry-run to write to Figma.'),
-      'Dry run complete'
+    const dryLines = [
+      `${pc.green('✓')} Token map parsed and saved to .designpull/token-map.json`,
+    ];
+    if (tokenMap.meta?.textStyles) {
+      dryLines.push(`${pc.green('✓')} Text styles to create: ${pc.bold(tokenMap.composites.textStyles.length)}`);
+    }
+    if (tokenMap.meta?.effectStyles) {
+      dryLines.push(`${pc.green('✓')} Effect styles to create: ${pc.bold(tokenMap.composites.elevationStyles.length)}`);
+    }
+    dryLines.push(
+      pc.dim('Review the file to verify before syncing.'),
+      '',
+      pc.dim('Run ') + pc.cyan('designpull sync') + pc.dim(' without --dry-run to write to Figma.')
     );
+    p.note(dryLines.join('\n'), 'Dry run complete');
     p.outro(pc.dim('No changes made to Figma'));
     return;
   }
@@ -201,15 +210,48 @@ export async function runSync(outputDir = process.cwd(), opts = {}) {
 
     writeSpinner.stop('Variables written to Figma');
 
-    p.note(
-      [
-        `${pc.green('✓')} Collections: ${tokenMap.collections.map(c => pc.bold(c.name)).join(', ')}`,
-        `${pc.green('✓')} Variables: ${pc.bold(countTokens(tokenMap))}`,
-        '',
-        pc.dim('Open Figma → right sidebar → Local variables to verify.'),
-      ].filter(Boolean).join('\n'),
-      'Sync complete'
-    );
+    // ── 7. Create text styles + effect styles ─────────────────────────────
+    let stylesCreated = false;
+    if (tokenMap.meta?.textStyles || tokenMap.meta?.effectStyles) {
+      const styleTypes = [
+        tokenMap.meta.textStyles && 'text styles',
+        tokenMap.meta.effectStyles && 'effect styles',
+      ].filter(Boolean).join(' + ');
+
+      const stylesSpinner = p.spinner();
+      stylesSpinner.start(`Creating ${styleTypes} in Figma`);
+
+      try {
+        await syncStyles(tokenMap, figmaUrl, tmpDir, outputDir, (line) => {
+          const clean = line.replace(/\x1B\[[0-9;]*m/g, '').trim();
+          if (clean.length > 4) stylesSpinner.message(truncate(clean, 64));
+        });
+        stylesSpinner.stop(`${styleTypes} created`);
+        stylesCreated = true;
+      } catch (err) {
+        stylesSpinner.stop('Style creation failed');
+        p.log.warn(
+          `Style creation error: ${err.message}\n` +
+          pc.dim('Variables were written successfully. You can create styles manually.')
+        );
+      }
+    }
+
+    const noteLines = [
+      `${pc.green('✓')} Collections: ${tokenMap.collections.map(c => pc.bold(c.name)).join(', ')}`,
+      `${pc.green('✓')} Variables: ${pc.bold(countTokens(tokenMap))}`,
+    ];
+    if (stylesCreated) {
+      if (tokenMap.meta.textStyles) {
+        noteLines.push(`${pc.green('✓')} Text styles: ${pc.bold(tokenMap.composites.textStyles.length)}`);
+      }
+      if (tokenMap.meta.effectStyles) {
+        noteLines.push(`${pc.green('✓')} Effect styles: ${pc.bold(tokenMap.composites.elevationStyles.length)}`);
+      }
+    }
+    noteLines.push('', pc.dim('Open Figma → right sidebar → Local variables / styles to verify.'));
+
+    p.note(noteLines.join('\n'), 'Sync complete');
 
   } catch (err) {
     writeSpinner.stop('Write failed');
@@ -286,6 +328,92 @@ async function syncViaFigmaSkills(tokenMap, figmaUrl, tmpDir, cwd, onLine) {
   // Build MCP config so the subprocess can access the Figma MCP server
   const mcpConfig = buildMcpConfig();
   const mcpConfigPath = path.join(tmpDir, 'mcp-config.json');
+  fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
+
+  try {
+    const result = await spawnClaudeCode(promptPath, mcpConfigPath, cwd, onLine);
+    return result;
+  } finally {
+    if (fs.existsSync(promptPath)) fs.unlinkSync(promptPath);
+    if (fs.existsSync(mcpConfigPath)) fs.unlinkSync(mcpConfigPath);
+  }
+}
+
+// ─── STYLES SYNC ─────────────────────────────────────────────────────────────
+
+function buildStylesPrompt(tokenMap, figmaUrl) {
+  const sections = [];
+
+  sections.push(`You are creating Figma styles in a file using the mcp__figma__use_figma tool (Figma MCP server).
+
+TARGET: Figma file ${figmaUrl || 'the currently open Figma file'}
+
+Using the mcp__figma__use_figma tool, create the following styles.
+Execute immediately without asking for confirmation. Do not ask clarifying questions.`);
+
+  if (tokenMap.meta?.textStyles && tokenMap.composites.textStyles.length > 0) {
+    const textStyles = tokenMap.composites.textStyles;
+
+    sections.push(`
+---
+
+TEXT STYLES
+
+Create ${textStyles.length} text styles in the Figma file. If a text style with the same name already exists, update it instead of creating a duplicate.
+
+Each text style uses a "/" in its name to create folder grouping (e.g., "Desktop/h1" appears under the "Desktop" folder).
+
+Text styles to create:
+${JSON.stringify(textStyles, null, 2)}
+
+For each entry:
+- "name" → the text style name
+- "fontSize" → font size in pixels
+- "lineHeight" → line height in pixels
+- "fontFamily" → the font family (e.g., "Inter", "IBM Plex Mono")
+- "fontStyle" → the font style variant (e.g., "Regular", "Medium", "Bold")
+- "fontWeight" → numeric weight (300, 400, 500, 600, 700)`);
+  }
+
+  if (tokenMap.meta?.effectStyles && tokenMap.composites.elevationStyles.length > 0) {
+    const elevationStyles = tokenMap.composites.elevationStyles;
+
+    sections.push(`
+---
+
+EFFECT STYLES
+
+Create ${elevationStyles.length} effect styles (drop shadows) in the Figma file. If an effect style with the same name already exists, update it instead of creating a duplicate.
+
+Effect styles to create:
+${JSON.stringify(elevationStyles, null, 2)}
+
+For each entry:
+- "name" → the effect style name
+- "effects" → array of shadow effects, each with:
+  - "type": "DROP_SHADOW"
+  - "offsetX", "offsetY" → shadow offset in pixels
+  - "blur" → blur radius in pixels
+  - "r", "g", "b" → color channels (0–1 range)
+  - "a" → opacity (0–1 range)`);
+  }
+
+  sections.push(`
+---
+
+VERIFICATION:
+After creating all styles, report what was created: style names and counts.`);
+
+  return sections.join('\n');
+}
+
+async function syncStyles(tokenMap, figmaUrl, tmpDir, cwd, onLine) {
+  const prompt = buildStylesPrompt(tokenMap, figmaUrl);
+  const promptPath = path.join(tmpDir, 'styles-prompt.txt');
+  fs.writeFileSync(promptPath, prompt, 'utf-8');
+
+  const mcpConfig = buildMcpConfig();
+  const mcpConfigPath = path.join(tmpDir, 'mcp-config-styles.json');
   fs.writeFileSync(mcpConfigPath, JSON.stringify(mcpConfig, null, 2), 'utf-8');
 
   try {
