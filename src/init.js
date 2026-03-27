@@ -2,10 +2,6 @@ import * as p from '@clack/prompts';
 import pc from 'picocolors';
 import fs from 'fs';
 import path from 'path';
-import { exec, spawn } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 // ─── TEMPLATE GENERATOR ───────────────────────────────────────────────────────
 
@@ -536,13 +532,10 @@ export async function runInit(outputDir = process.cwd()) {
   // ── SECTION 5: Figma ────────────────────────────────────────────────────────
   p.log.step(pc.bold('Figma'));
   p.log.message(
-    pc.dim('DesignPull needs two API keys to sync tokens:\n\n') +
-    pc.bold('1. Figma Personal Access Token\n') +
+    pc.dim('DesignPull needs a Figma Personal Access Token to sync tokens.\n\n') +
+    pc.bold('Figma Personal Access Token\n') +
     pc.dim('   Get at: ') + pc.cyan('figma.com → Account Settings → Security → Personal Access Tokens') + '\n' +
-    pc.dim('   Scopes: ') + pc.white('File content (read) + Variables (read/write)') + '\n\n' +
-    pc.bold('2. Anthropic API Key\n') +
-    pc.dim('   Get at: ') + pc.cyan('console.anthropic.com/settings/keys') + '\n' +
-    pc.dim('   Used to parse design-token.md into structured JSON')
+    pc.dim('   Scopes: ') + pc.white('File content (read) + Variables (read/write)')
   );
 
   const figma = await p.group(
@@ -565,15 +558,6 @@ export async function runInit(outputDir = process.cwd()) {
           validate: (v) => {
             if (!v || !v.trim()) return undefined; // Allow skipping
             if (!v.startsWith('figd_')) return 'Figma PATs start with figd_ — check your token';
-          },
-        }),
-
-      anthropicKey: () =>
-        p.password({
-          message: 'Anthropic API Key (or press Enter to skip)',
-          validate: (v) => {
-            if (!v || !v.trim()) return undefined; // Allow skipping
-            if (!v.startsWith('sk-ant-')) return 'Anthropic API keys start with sk-ant- — check your key';
           },
         }),
     },
@@ -615,9 +599,6 @@ export async function runInit(outputDir = process.cwd()) {
     `FIGMA_FILE_URL=${figma.figmaFileUrl}`,
     `FIGMA_FILE_KEY=${figmaFileKey}`,
     (figma.figmaPat && figma.figmaPat.trim()) ? `FIGMA_ACCESS_TOKEN=${figma.figmaPat}` : 'FIGMA_ACCESS_TOKEN=your_pat_here',
-    '',
-    '# Anthropic — for Claude token parsing',
-    (figma.anthropicKey && figma.anthropicKey.trim()) ? `ANTHROPIC_API_KEY=${figma.anthropicKey}` : 'ANTHROPIC_API_KEY=your_key_here',
   ];
   fs.writeFileSync(envPath, envLines.join('\n'), 'utf-8');
 
@@ -634,41 +615,27 @@ export async function runInit(outputDir = process.cwd()) {
 
   spinner.stop('Project files written');
 
-  // ── SECTION 6: Prerequisites & First Sync ──────────────────────────────────
+  // ── SECTION 6: Next Steps ───────────────────────────────────────────────────
   const hasFigmaPat = figma.figmaPat && figma.figmaPat.trim().length > 0;
-  const hasAnthropicKey = figma.anthropicKey && figma.anthropicKey.trim().length > 0;
-  const hasAllKeys = hasFigmaPat && hasAnthropicKey;
-
-  if (hasAllKeys) {
-    await setupAndRunFirstSync(figma.figmaFileUrl, outputDir);
-  }
-
-  // ── NEXT STEPS ──────────────────────────────────────────────────────────────
-
-  const missingKeys = [];
-  if (!hasFigmaPat) missingKeys.push({ name: 'Figma PAT', env: 'FIGMA_ACCESS_TOKEN', value: 'figd_...', url: 'figma.com → Settings → Personal Access Tokens' });
-  if (!hasAnthropicKey) missingKeys.push({ name: 'Anthropic API Key', env: 'ANTHROPIC_API_KEY', value: 'sk-ant-...', url: 'console.anthropic.com/settings/keys' });
 
   p.note(
     [
       `${pc.green('✓')} ${pc.bold('design-token.md')} — your token source of truth`,
-      `${pc.green('✓')} ${pc.bold('.env')}             — API keys ${hasAllKeys ? pc.green('(configured)') : pc.yellow(`(${missingKeys.length} missing)`)}`,
+      `${pc.green('✓')} ${pc.bold('.env')}             — Figma credentials ${hasFigmaPat ? pc.green('(configured)') : pc.yellow('(PAT missing)')}`,
       `${pc.green('✓')} ${pc.bold('.gitignore')}       — .env excluded from git`,
       '',
-      ...(missingKeys.length > 0 ? [
-        pc.yellow(`⚠ Missing ${missingKeys.length} API key${missingKeys.length > 1 ? 's' : ''}`),
-        ...missingKeys.flatMap(key => [
-          `  ${pc.bold(key.name)}:`,
-          `    Add to ${pc.bold('.env')}: ${pc.dim(key.env + '=')}${pc.cyan(key.value)}`,
-          `    Get at: ${pc.cyan(key.url)}`,
-        ]),
+      ...(!hasFigmaPat ? [
+        pc.yellow('⚠ Missing Figma PAT'),
+        `  Add to ${pc.bold('.env')}: ${pc.dim('FIGMA_ACCESS_TOKEN=')}${pc.cyan('figd_...')}`,
+        `  Get at: ${pc.cyan('figma.com → Settings → Personal Access Tokens')}`,
         '',
       ] : []),
       pc.dim('Next steps:'),
       `  ${pc.cyan('1.')} Review ${pc.bold('design-token.md')} — tweak any values`,
-      ...(missingKeys.length > 0 ? [`  ${pc.cyan('2.')} Add missing API keys to ${pc.bold('.env')} (see above)`] : []),
-      `  ${pc.cyan(hasAllKeys ? '2.' : '3.')} Run ${pc.cyan('designpull sync')} to start the MCP server`,
-      `  ${pc.cyan(hasAllKeys ? '3.' : '4.')} When prompted, open the ${pc.bold('Desktop Bridge')} plugin in Figma`,
+      ...(!hasFigmaPat ? [`  ${pc.cyan('2.')} Add Figma PAT to ${pc.bold('.env')}`] : []),
+      `  ${pc.cyan(hasFigmaPat ? '2.' : '3.')} Ensure Figma MCP server is configured in Claude Code`,
+      `     ${pc.dim('See: https://help.figma.com/hc/en-us/articles/39166810751895')}`,
+      `  ${pc.cyan(hasFigmaPat ? '3.' : '4.')} Run ${pc.cyan('designpull sync')} to write variables to Figma`,
     ].join('\n'),
     'Setup complete'
   );
@@ -678,244 +645,6 @@ export async function runInit(outputDir = process.cwd()) {
   );
 }
 
-// ─── FIRST SYNC ORCHESTRATION ─────────────────────────────────────────────────
-
-async function setupAndRunFirstSync(figmaFileUrl, outputDir) {
-  p.log.step(pc.bold('Setup & First Sync'));
-
-  // Step 1: Check figma-console-mcp
-  const mcpInstalled = await checkFigmaConsoleMcp();
-  if (!mcpInstalled) {
-    p.log.warn(
-      `${pc.yellow('⚠')} figma-console-mcp not found\n\n` +
-      `Install it by running:\n` +
-      `  ${pc.cyan('npx -y figma-console-mcp@latest --version')}\n\n` +
-      `Or visit: ${pc.cyan('https://docs.figma-console-mcp.southleft.com/setup')}`
-    );
-    return;
-  }
-
-  // Step 2: Check Desktop Bridge plugin
-  const pluginPath = await getDesktopBridgePath();
-  const hasPlugin = await checkDesktopBridgePlugin(pluginPath);
-  if (!hasPlugin) {
-    return; // User chose not to continue
-  }
-
-  // Step 3: Close Desktop Bridge plugin
-  const pluginClosed = await p.confirm({
-    message: `${pc.yellow('⚠')} Important: Close the Desktop Bridge plugin in Figma if it's open`,
-    initialValue: false,
-  });
-  if (p.isCancel(pluginClosed) || !pluginClosed) {
-    p.cancel('Please close the plugin and run init again.');
-    return;
-  }
-
-  // Step 4: Clean up zombie processes
-  const cleanSpinner = p.spinner();
-  cleanSpinner.start('Cleaning up any existing MCP server processes');
-  await cleanupMcpProcesses();
-  cleanSpinner.stop('✓ Port 9223 is now free');
-
-  // Step 5: Confirm ready for sync
-  p.log.message(
-    `${pc.bold("🚀 Ready to sync your design tokens to Figma")}\n\n` +
-    `${pc.dim("When you press")} ${pc.cyan("y")}${pc.dim(":")}\n` +
-    `  ${pc.dim("1. We'll start the MCP server (binds to port 9223)")}\n` +
-    `  ${pc.dim("2. Wait for \"Server ready on port 9223\"")}\n` +
-    `  ${pc.dim("3. THEN open the Desktop Bridge plugin in Figma")}\n` +
-    `  ${pc.dim("4. The sync will complete automatically")}`
-  );
-
-  const readyToSync = await p.confirm({
-    message: 'Ready to start?',
-    initialValue: true,
-  });
-  if (p.isCancel(readyToSync) || !readyToSync) {
-    p.cancel('Sync cancelled. Run designpull sync when ready.');
-    return;
-  }
-
-  // Step 6: Start sync in background and wait for server
-  const syncSpinner = p.spinner();
-  syncSpinner.start('Starting MCP server');
-
-  const syncProcess = spawn('npm', ['start', 'sync'], {
-    cwd: outputDir,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false,
-    shell: true,
-  });
-
-  // Wait for MCP server to bind to port 9223
-  const serverReady = await waitForServerBind(9223, 15000);
-  if (!serverReady) {
-    syncProcess.kill();
-    syncSpinner.stop('✗ Server failed to start on port 9223');
-    p.log.error('Please run designpull sync manually and check for errors.');
-    return;
-  }
-
-  syncSpinner.stop('✓ Server ready on port 9223');
-
-  // Step 7: Prompt to open plugin
-  p.log.message(
-    `${pc.bold('📱 Now open the Desktop Bridge plugin in Figma')}\n\n` +
-    `  ${pc.dim('1. In Figma: Right-click → Plugins → Development → Figma Desktop Bridge')}\n` +
-    `  ${pc.dim('2. Leave the plugin window open')}\n\n` +
-    `${pc.dim('Waiting for plugin to connect... (this takes ~2 seconds)')}`
-  );
-
-  const pluginOpened = await p.confirm({
-    message: 'Have you opened the plugin?',
-    initialValue: false,
-  });
-  if (p.isCancel(pluginOpened) || !pluginOpened) {
-    syncProcess.kill();
-    p.cancel('Sync cancelled. Run designpull sync when ready.');
-    return;
-  }
-
-  // Step 8: Monitor sync output
-  const statusSpinner = p.spinner();
-  statusSpinner.start('Syncing variables to Figma');
-
-  let syncOutput = '';
-  let syncCompleted = false;
-
-  syncProcess.stdout.on('data', (data) => {
-    syncOutput += data.toString();
-    // Check for success indicators
-    if (syncOutput.includes('created') || syncOutput.includes('success')) {
-      syncCompleted = true;
-    }
-  });
-
-  syncProcess.stderr.on('data', (data) => {
-    syncOutput += data.toString();
-  });
-
-  // Wait for sync to complete (timeout 60s)
-  await new Promise((resolve) => {
-    syncProcess.on('exit', (code) => {
-      if (code === 0 && syncCompleted) {
-        statusSpinner.stop('✓ Successfully synced variables to Figma!');
-        // Parse output to show variable counts
-        const primitiveMatch = syncOutput.match(/Created collection "Primitives".*created":(\d+)/);
-        const semanticMatch = syncOutput.match(/Created collection "Semantic".*created":(\d+)/);
-        const typographyMatch = syncOutput.match(/Created collection "Typography".*created":(\d+)/);
-
-        if (primitiveMatch || semanticMatch || typographyMatch) {
-          const counts = [];
-          if (primitiveMatch) counts.push(`Primitives: ${primitiveMatch[1]} variables`);
-          if (semanticMatch) counts.push(`Semantic: ${semanticMatch[1]} variables`);
-          if (typographyMatch) counts.push(`Typography: ${typographyMatch[1]} variables`);
-
-          p.log.success(`Created:\n  ${counts.join('\n  ')}`);
-        }
-      } else {
-        statusSpinner.stop('✗ Sync failed');
-        p.log.error(`Check the output above for errors.\nExit code: ${code}`);
-      }
-      resolve();
-    });
-
-    // Timeout after 60 seconds
-    setTimeout(() => {
-      if (!syncCompleted) {
-        syncProcess.kill();
-        statusSpinner.stop('✗ Sync timed out');
-        p.log.error('Sync took too long. Please run designpull sync manually.');
-        resolve();
-      }
-    }, 60000);
-  });
-}
-
-// Helper: Check if figma-console-mcp is installed
-async function checkFigmaConsoleMcp() {
-  try {
-    await execAsync('npx -y figma-console-mcp@latest --version');
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-// Helper: Get Desktop Bridge plugin path
-async function getDesktopBridgePath() {
-  try {
-    const { stdout } = await execAsync('npx -y figma-console-mcp@latest --print-path');
-    return path.join(stdout.trim(), 'figma-desktop-bridge');
-  } catch {
-    return null;
-  }
-}
-
-// Helper: Check if Desktop Bridge plugin is installed
-async function checkDesktopBridgePlugin(pluginPath) {
-  if (!pluginPath || !fs.existsSync(path.join(pluginPath, 'manifest.json'))) {
-    p.log.warn(
-      `${pc.yellow('⚠')} Desktop Bridge plugin not found\n\n` +
-      `Install it by:\n` +
-      `  1. Run: ${pc.cyan('npx -y figma-console-mcp@latest --print-path')}\n` +
-      `  2. In Figma Desktop: Plugins → Development → Import plugin from manifest\n` +
-      `  3. Navigate to the figma-desktop-bridge/manifest.json file\n\n` +
-      `Or visit: ${pc.cyan('https://docs.figma-console-mcp.southleft.com/setup#step-3')}`
-    );
-
-    const continueAnyway = await p.confirm({
-      message: 'Continue anyway? (You can install the plugin later)',
-      initialValue: false,
-    });
-    return !p.isCancel(continueAnyway) && continueAnyway;
-  }
-  return true;
-}
-
-// Helper: Clean up zombie MCP processes and free port 9223
-async function cleanupMcpProcesses() {
-  try {
-    // Kill all figma-console-mcp processes
-    await execAsync('pkill -9 -f figma-console-mcp').catch(() => {});
-
-    // Check if port 9223 is still occupied
-    const { stdout } = await execAsync('lsof -i :9223 -P').catch(() => ({ stdout: '' }));
-    if (stdout) {
-      // Extract PID and kill
-      const lines = stdout.split('\n');
-      for (const line of lines.slice(1)) { // Skip header
-        const parts = line.trim().split(/\s+/);
-        if (parts[1]) {
-          await execAsync(`kill -9 ${parts[1]}`).catch(() => {});
-        }
-      }
-    }
-
-    // Wait a moment for port to be released
-    await new Promise(resolve => setTimeout(resolve, 1000));
-  } catch (error) {
-    // Ignore cleanup errors
-  }
-}
-
-// Helper: Wait for MCP server to bind to specific port
-async function waitForServerBind(port, timeoutMs) {
-  const startTime = Date.now();
-  while (Date.now() - startTime < timeoutMs) {
-    try {
-      const { stdout } = await execAsync(`lsof -i :${port} -P`);
-      if (stdout.includes('LISTEN')) {
-        return true;
-      }
-    } catch {
-      // Port not bound yet
-    }
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-  return false;
-}
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 

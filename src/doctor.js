@@ -41,13 +41,13 @@ export async function runDoctor(outputDir = process.cwd()) {
   });
   if (claudeOk) passed++;
 
-  // ── 3. Figma Console MCP ───────────────────────────────────────────────────
+  // ── 3. Figma MCP server configured ─────────────────────────────────────────
   const figmaMcp = await checkFigmaMcp();
   checks.push({
-    name: 'Figma Console MCP configured',
+    name: 'Figma MCP server configured',
     status: figmaMcp ? 'pass' : 'fail',
     value: figmaMcp ? 'configured' : 'not found',
-    fix: figmaMcp ? null : 'Run: claude mcp add figma-console -s user -e FIGMA_ACCESS_TOKEN=figd_... -e ENABLE_MCP_APPS=true -- npx -y figma-console-mcp@latest',
+    fix: figmaMcp ? null : 'Set up Figma MCP: https://help.figma.com/hc/en-us/articles/39166810751895-Figma-skills-for-MCP',
   });
   if (figmaMcp) passed++;
 
@@ -61,23 +61,8 @@ export async function runDoctor(outputDir = process.cwd()) {
   });
   if (chakraMcp) passed++;
 
-  // ── 5. ANTHROPIC_API_KEY ───────────────────────────────────────────────────
+  // ── 5. FIGMA_ACCESS_TOKEN ──────────────────────────────────────────────────
   const envPath = path.join(outputDir, '.env');
-  let anthropicKey = process.env.ANTHROPIC_API_KEY || '';
-  if (!anthropicKey && fs.existsSync(envPath)) {
-    const env = parseEnv(fs.readFileSync(envPath, 'utf-8'));
-    anthropicKey = env.ANTHROPIC_API_KEY || '';
-  }
-  const anthropicOk = anthropicKey && anthropicKey !== 'your_key_here';
-  checks.push({
-    name: 'ANTHROPIC_API_KEY set',
-    status: anthropicOk ? 'pass' : 'fail',
-    value: anthropicOk ? 'set' : 'missing',
-    fix: anthropicOk ? null : 'Set ANTHROPIC_API_KEY in .env (get one at console.anthropic.com)',
-  });
-  if (anthropicOk) passed++;
-
-  // ── 6. FIGMA_ACCESS_TOKEN ──────────────────────────────────────────────────
   let figmaPat = '';
   if (fs.existsSync(envPath)) {
     const env = parseEnv(fs.readFileSync(envPath, 'utf-8'));
@@ -92,7 +77,7 @@ export async function runDoctor(outputDir = process.cwd()) {
   });
   if (figmaPatOk) passed++;
 
-  // ── 7. design-token.md ─────────────────────────────────────────────────────
+  // ── 6. design-token.md ─────────────────────────────────────────────────────
   const tokenPath = path.join(outputDir, 'design-token.md');
   const tokenExists = fs.existsSync(tokenPath);
   checks.push({
@@ -103,7 +88,7 @@ export async function runDoctor(outputDir = process.cwd()) {
   });
   if (tokenExists) passed++;
 
-  // ── 8. token-map.json (has been synced) ────────────────────────────────────
+  // ── 7. token-map.json (has been synced) ────────────────────────────────────
   const tokenMapPath = path.join(outputDir, '.designpull', 'token-map.json');
   const tokenMapExists = fs.existsSync(tokenMapPath);
   checks.push({

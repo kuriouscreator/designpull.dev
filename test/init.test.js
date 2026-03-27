@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import path from 'path';
-import { exec } from 'child_process';
 import { runInit } from '../src/init.js';
 
 vi.mock('fs');
-vi.mock('child_process');
 vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
@@ -74,16 +72,13 @@ describe('init command', () => {
         darkModeRaised: '#2A2A2A',
       };
 
-      // We can't easily test the full runInit flow due to prompts,
-      // but we can verify the template structure would be valid
       expect(mockAnswers.projectName).toBe('Test Project');
       expect(mockAnswers.primaryColor).toMatch(/^#[0-9A-F]{6}$/i);
     });
 
-    it('should create .env file with credentials', () => {
+    it('should create .env file with Figma credentials only', () => {
       const mockEnvContent = `FIGMA_FILE_URL=https://figma.com/design/test
-FIGMA_ACCESS_TOKEN=figd_test_token
-ANTHROPIC_API_KEY=sk-test-key`;
+FIGMA_ACCESS_TOKEN=figd_test_token`;
 
       fs.writeFileSync = vi.fn();
 
@@ -91,6 +86,15 @@ ANTHROPIC_API_KEY=sk-test-key`;
       fs.writeFileSync(envPath, mockEnvContent);
 
       expect(fs.writeFileSync).toHaveBeenCalledWith(envPath, mockEnvContent);
+    });
+
+    it('should not include ANTHROPIC_API_KEY in .env', () => {
+      const envContent = `# DesignPull
+FIGMA_FILE_URL=https://figma.com/design/test
+FIGMA_FILE_KEY=test
+FIGMA_ACCESS_TOKEN=figd_test_token`;
+
+      expect(envContent).not.toContain('ANTHROPIC_API_KEY');
     });
 
     it('should create .gitignore file', () => {

@@ -31,7 +31,6 @@
   },
   "files": [
     "src/",
-    "scripts/",
     "README.md",
     "LICENSE"
   ],
@@ -44,23 +43,16 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "prepublishOnly": "npm test",
-    "mcp:start": "node scripts/mcp-wrapper.js start",
-    "mcp:stop": "node scripts/mcp-wrapper.js stop",
-    "mcp:restart": "node scripts/mcp-wrapper.js restart",
-    "mcp:status": "node scripts/mcp-wrapper.js status"
+    "prepublishOnly": "npm test"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@clack/prompts": "^0.7.0",
-    "@modelcontextprotocol/sdk": "^1.27.1",
     "commander": "^12.0.0",
-    "picocolors": "^1.0.0",
-    "ws": "^8.19.0"
+    "picocolors": "^1.0.0"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.18",
     "@vitest/ui": "^4.0.18",
-    "c8": "^11.0.0",
     "vitest": "^4.0.18"
   }
 }
